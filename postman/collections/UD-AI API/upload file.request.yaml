@@ -8,5 +8,5 @@ body:
   content:
     - key: file
       type: file
-      src: ''
+      src: 'C:/Users/ssk12/OneDrive/Documents/GitHub/UD-AI/uploads/test.csv'
       description: 'Upload a file (.jpg, .jpeg, .png, .pdf, .csv)'
