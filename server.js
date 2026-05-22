@@ -11,6 +11,7 @@ const app = express();
 
 // Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use(cors());
 
@@ -64,6 +65,12 @@ mongoose.connection.on(
     console.log("Mongoose Error:", err);
   }
 );
+
+// Error handling
+app.use((err, req, res, next) => {
+  console.error("Unhandled Error:", err);
+  res.status(500).json({ message: "Internal Server Error" });
+});
 
 // Server
 const PORT = process.env.PORT || 5000;

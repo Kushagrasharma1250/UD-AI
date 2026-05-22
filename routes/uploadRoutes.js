@@ -67,17 +67,18 @@ const upload = multer({
 
 // ================= FILE UPLOAD API =================
 
-router.post(
-  "/upload",
-
-  upload.single("file"),
-
-  async (req, res) => {
+router.post("/upload", (req, res) => {
+  upload.any()(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({
+        message: err.message || "File upload failed"
+      });
+    }
 
     try {
+      const uploadedFile = req.files && req.files[0];
 
-      if (!req.file) {
-
+      if (!uploadedFile) {
         return res.status(400).json({
           message: "No File Uploaded"
         });
@@ -85,30 +86,24 @@ router.post(
 
       // Save File Info to DB
       const newFile = new File({
-
-        filename: req.file.filename,
-
-        filepath: req.file.path
+        filename: uploadedFile.filename,
+        filepath: uploadedFile.path
       });
 
       await newFile.save();
 
       res.status(200).json({
-
         message: "File Uploaded Successfully",
-
         file: newFile
       });
-
     } catch (error) {
-
+      console.error("Upload Error:", error);
       res.status(500).json({
-        message: "Server Error",
-        error
+        message: "Server Error"
       });
     }
-  }
-);
+  });
+});
 
 
 // ================= GET ALL FILES =================
