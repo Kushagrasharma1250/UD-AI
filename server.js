@@ -24,6 +24,7 @@ app.use(
   )
 );
 
+app.use(express.static(path.join(__dirname, "public")));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -47,8 +48,7 @@ app.use(
 
 // Home Route
 app.get("/", (req, res) => {
-
-  res.send("File Upload Server Running");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 mongoose.connection.on(
   "connected",
@@ -75,9 +75,17 @@ app.use((err, req, res, next) => {
 // Server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
 
   console.log(
     `🚀 Server Running on Port ${PORT}`
   );
+});
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Please stop the process using it or change PORT.`);
+    process.exit(1);
+  }
+  throw error;
 });

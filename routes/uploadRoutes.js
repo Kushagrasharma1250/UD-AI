@@ -1,28 +1,31 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
+const csv = require("csv-parser");
+const fs = require("fs");
+const axios = require("axios");
 
+const processPipeline = require("../utils/processPipeline");
 const File = require("../models/File");
 
 const router = express.Router();
 
+const uploadsDir = path.join(__dirname, "..", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // ================= MULTER STORAGE =================
 
 const storage = multer.diskStorage({
-
   destination: (req, file, cb) => {
-
-    cb(null, "uploads/");
+    cb(null, uploadsDir);
   },
 
   filename: (req, file, cb) => {
-
     cb(
       null,
-
-      Date.now() +
-      path.extname(file.originalname)
+      Date.now() + path.extname(file.originalname)
     );
   }
 });
@@ -40,19 +43,12 @@ const fileFilter = (req, file, cb) => {
     ".csv"
   ];
 
-  const ext =
-    path.extname(file.originalname);
+  const ext = path.extname(file.originalname).toLowerCase();
 
   if (allowedTypes.includes(ext)) {
-
     cb(null, true);
-
   } else {
-
-    cb(
-      new Error("File Type Not Allowed"),
-      false
-    );
+    cb(new Error("File Type Not Allowed"), false);
   }
 };
 
@@ -67,42 +63,137 @@ const upload = multer({
 
 // ================= FILE UPLOAD API =================
 
-router.post("/upload", (req, res) => {
-  upload.any()(req, res, async (err) => {
-    if (err) {
+router.post("/upload", upload.single("file"), async (req, res) => {
+
+  try {
+
+    if (!req.file) {
       return res.status(400).json({
-        message: err.message || "File upload failed"
+        message: "No File Uploaded"
       });
     }
 
-    try {
-      const uploadedFile = req.files && req.files[0];
+    // Save File Info to DB
+    const savedPath = path.resolve(req.file.path || path.join(uploadsDir, req.file.filename));
 
-      if (!uploadedFile) {
-        return res.status(400).json({
-          message: "No File Uploaded"
-        });
+    const newFile = new File({
+      filename: req.file.filename,
+      filepath: savedPath
+    });
+
+    await newFile.save();
+
+    res.status(200).json({
+      message: "File Uploaded Successfully",
+      file: newFile
+    });
+
+  } catch (error) {
+
+    console.error("Upload Error:", error);
+
+    res.status(500).json({
+      message: "Server Error"
+    });
+  }
+});
+
+
+// ================= PROCESS CSV API =================
+
+router.post("/process", async (req, res) => {
+
+  try {
+    const files = await File.find().sort({ createdAt: -1 });
+
+    if (!files.length) {
+      return res.status(404).json({
+        message: "No CSV File Found"
+      });
+    }
+
+    let latestFile = null;
+
+    for (const file of files) {
+      if (!file.filepath) continue;
+
+      const candidatePath = path.resolve(file.filepath);
+      if (path.extname(candidatePath).toLowerCase() !== ".csv") continue;
+      if (fs.existsSync(candidatePath)) {
+        latestFile = { filepath: candidatePath, filename: file.filename };
+        break;
       }
+    }
 
-      // Save File Info to DB
-      const newFile = new File({
-        filename: uploadedFile.filename,
-        filepath: uploadedFile.path
-      });
+    if (!latestFile) {
+      const csvFiles = fs.readdirSync(uploadsDir)
+        .filter((name) => path.extname(name).toLowerCase() === ".csv")
+        .map((name) => {
+          const filePath = path.join(uploadsDir, name);
+          return {
+            name,
+            filePath,
+            mtime: fs.statSync(filePath).mtime.getTime()
+          };
+        })
+        .sort((a, b) => b.mtime - a.mtime);
 
-      await newFile.save();
+      if (csvFiles.length > 0) {
+        latestFile = {
+          filepath: csvFiles[0].filePath,
+          filename: csvFiles[0].name
+        };
+      }
+    }
 
-      res.status(200).json({
-        message: "File Uploaded Successfully",
-        file: newFile
-      });
-    } catch (error) {
-      console.error("Upload Error:", error);
-      res.status(500).json({
-        message: "Server Error"
+    if (!latestFile) {
+      return res.status(404).json({
+        message: "Latest uploaded file not found"
       });
     }
-  });
+
+    const results = [];
+
+    fs.createReadStream(latestFile.filepath)
+      .pipe(csv())
+
+      .on("data", (data) => {
+        results.push(data);
+      })
+
+      .on("end", () => {
+        try {
+          const processed = processPipeline(results);
+
+          res.json({
+            success: true,
+            processed
+          });
+        } catch (error) {
+          console.error("Processing pipeline error:", error);
+
+          res.status(500).json({
+            message: "CSV Processing Error"
+          });
+        }
+      })
+
+      .on("error", (error) => {
+        console.error(error);
+
+        res.status(500).json({
+          message: "CSV Processing Error"
+        });
+      });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      message: "Server Error"
+    });
+  }
 });
 
 
@@ -123,7 +214,6 @@ router.get("/files", async (req, res) => {
     });
   }
 });
-const axios = require("axios");
 
 
 // ================= EXTERNAL API =================
@@ -145,5 +235,8 @@ router.get("/users", async (req, res) => {
     });
   }
 });
+
+
+// ================= EXPORT ROUTER =================
 
 module.exports = router;

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UD-AI File Upload</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <h1>UD-AI File Upload</h1>
+      <p>Upload CSV, PDF, image files, and process the latest CSV from the database.</p>
+    </header>
+
+    <section class="card">
+      <h2>Upload a File</h2>
+      <form id="uploadForm">
+        <label for="fileInput">Choose a file</label>
+        <input id="fileInput" type="file" name="file" accept=".jpg,.jpeg,.png,.pdf,.csv" />
+        <button type="submit">Upload</button>
+      </form>
+      <div id="uploadMessage" class="message"></div>
+    </section>
+
+    <section class="card grid-two">
+      <div>
+        <h2>Uploaded Files</h2>
+        <div id="filesList" class="list"></div>
+      </div>
+
+      <div>
+        <h2>Process Latest CSV</h2>
+        <button id="processButton">Process Latest CSV</button>
+        <div id="processMessage" class="message"></div>
+        <div id="processResult" class="result"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Sample External API</h2>
+      <button id="loadUsersButton">Load Users</button>
+      <div id="usersList" class="list"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
