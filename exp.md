@@ -1,0 +1,2 @@
+Unified Knowledge Model (UKM)
+User -> Upload API ->Document Processor -> Document Understanding Engine -> Knowledge Graph  -> Reasoning Engine -> Knowledge Compression -> Poster Planner -> Poster Generator -> Export
